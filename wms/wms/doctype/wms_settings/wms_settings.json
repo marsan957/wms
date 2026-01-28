@@ -13,6 +13,8 @@
   "column_break_1",
   "enable_sound",
   "enable_vibration",
+  "scan_order_section",
+  "scan_steps",
   "packing_section",
   "auto_create_packing_slip",
   "default_packing_location",
@@ -61,6 +63,18 @@
    "label": "Enable Vibration (Mobile)"
   },
   {
+   "fieldname": "scan_order_section",
+   "fieldtype": "Section Break",
+   "label": "Scan Order Configuration"
+  },
+  {
+   "fieldname": "scan_steps",
+   "fieldtype": "Table",
+   "label": "Scan Steps",
+   "options": "WMS Scan Step",
+   "description": "Define the order of scanning steps. Default: Location → Batch → Item → Box"
+  },
+  {
    "fieldname": "packing_section",
    "fieldtype": "Section Break",
    "label": "Packing Settings"
@@ -91,13 +105,13 @@
    "default": "0.1",
    "fieldname": "max_package_volume",
    "fieldtype": "Float",
-   "label": "Max Package Volume (m\u00b3)"
+   "label": "Max Package Volume (m³)"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-01-28 16:00:00.000000",
+ "modified": "2026-01-28 19:50:00.000000",
  "modified_by": "Administrator",
  "module": "WMS",
  "name": "WMS Settings",

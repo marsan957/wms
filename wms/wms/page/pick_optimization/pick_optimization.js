@@ -13,6 +13,7 @@ const SCAN_STATE = {
 	LOCATION: 'location',
 	BATCH: 'batch',
 	ITEM: 'item',
+	BOX: 'box',
 	QUANTITY: 'quantity',
 	COMPLETE: 'complete'
 };
@@ -23,7 +24,7 @@ class WMSPickOptimization {
 		this.pick_list = frappe.get_route()[1];
 
 		if (!this.pick_list) {
-			frappe.msgprint(__('No Pick List specified'));
+			frappe.msgprint('No Pick List specified');
 			return;
 		}
 
@@ -36,35 +37,45 @@ class WMSPickOptimization {
 		this.scan_data = {};
 		this.scanned_qty = 0;
 
+		// Scan order configuration (default)
+		this.scan_order = ['location', 'batch', 'item', 'box'];
+
 		this.setup_page();
+		this.load_settings();
 		this.load_data();
 	}
 
+	load_settings() {
+		frappe.call({
+			method: 'frappe.client.get_single',
+			args: { doctype: 'WMS Settings' },
+			callback: (r) => {
+				if (r.message && r.message.scan_steps && r.message.scan_steps.length > 0) {
+					// Use custom scan order from settings
+					this.scan_order = r.message.scan_steps
+						.sort((a, b) => a.sequence - b.sequence)
+						.map(step => step.step_type.toLowerCase());
+				}
+			}
+		});
+	}
+
 	setup_page() {
-		// Setup responsive layout with tabs for mobile
+		// Setup responsive layout with Frappe Tabs
 		this.page.main.html(`
 			<div class="wms-pick-container">
 				<!-- Mobile Tab Navigation -->
-				<div class="wms-mobile-tabs">
-					<button class="wms-tab-btn active" data-tab="items">
-						<span class="octicon octicon-checklist"></span>
-						${__('Items')}
-					</button>
-					<button class="wms-tab-btn" data-tab="detail">
-						<span class="octicon octicon-package"></span>
-						${__('Detail')}
-					</button>
-				</div>
+				<div class="wms-mobile-tabs-wrapper"></div>
 
 				<div class="wms-content-wrapper">
 					<!-- Left: Items List -->
-					<div class="wms-items-panel wms-tab-content active" data-tab="items">
+					<div class="wms-items-panel wms-tab-content" data-tab="items">
 						<div class="wms-progress-header"></div>
 						<div class="wms-items-list"></div>
 					</div>
 
 					<!-- Right: Item Detail & Scanning -->
-					<div class="wms-detail-panel wms-tab-content" data-tab="detail">
+					<div class="wms-detail-panel wms-tab-content active" data-tab="detail">
 						<div class="wms-item-detail"></div>
 					</div>
 				</div>
@@ -75,20 +86,40 @@ class WMSPickOptimization {
 		this.$items_list = this.page.main.find('.wms-items-list');
 		this.$detail = this.page.main.find('.wms-item-detail');
 
-		// Setup mobile tab switching
-		this.page.main.find('.wms-tab-btn').on('click', (e) => {
-			const tab = $(e.currentTarget).data('tab');
-			this.switch_tab(tab);
-		});
+		// Setup Frappe Tabs for mobile
+		this.setup_frappe_tabs();
 
 		// Make instance accessible globally
 		window.wms = this;
 	}
 
-	switch_tab(tab) {
-		this.page.main.find('.wms-tab-btn').removeClass('active');
-		this.page.main.find(`.wms-tab-btn[data-tab="${tab}"]`).addClass('active');
+	setup_frappe_tabs() {
+		const tabs_wrapper = this.page.main.find('.wms-mobile-tabs-wrapper');
 
+		this.tabs = new frappe.ui.Tabs({
+			parent: tabs_wrapper,
+			tabs: [
+				{
+					label: 'Items',
+					value: 'items'
+				},
+				{
+					label: 'Detail',
+					value: 'detail'
+				}
+			]
+		});
+
+		// Listen to tab changes
+		this.tabs.on_tab_change = (tab) => {
+			this.switch_tab(tab.value);
+		};
+
+		// Set detail tab as active by default
+		this.tabs.set_value('detail');
+	}
+
+	switch_tab(tab) {
 		this.page.main.find('.wms-tab-content').removeClass('active');
 		this.page.main.find(`.wms-tab-content[data-tab="${tab}"]`).addClass('active');
 	}
@@ -122,7 +153,7 @@ class WMSPickOptimization {
 		this.$progress.html(`
 			<div class="wms-progress-bar-wrapper">
 				<div class="wms-progress-text">
-					${__('Picked')}: ${this.completed_count} / ${this.total_items}
+					Picked: ${this.completed_count} / ${this.total_items}
 				</div>
 				<div class="wms-progress-bar">
 					<div class="wms-progress-fill" style="width: ${percent}%"></div>
@@ -158,7 +189,7 @@ class WMSPickOptimization {
 						</div>
 					</div>
 					<div class="wms-item-qty">
-						<div class="wms-qty-label">${__('Pick')}</div>
+						<div class="wms-qty-label">Pick</div>
 						<div class="wms-qty-value">${picked_qty} / ${item.qty}</div>
 					</div>
 					${is_completed ? '<div class="wms-item-check"><span class="octicon octicon-check"></span></div>' : ''}
@@ -172,21 +203,25 @@ class WMSPickOptimization {
 	select_item(idx) {
 		this.show_item_detail(idx);
 		// Auto-switch to detail tab on mobile
-		this.switch_tab('detail');
+		if (this.tabs) {
+			this.tabs.set_value('detail');
+		}
 	}
 
 	show_item_detail(idx) {
 		this.current_item_idx = idx;
 		const item = this.pick_items[idx];
 
-		// Reset scan state
-		this.scan_state = SCAN_STATE.LOCATION;
+		// Reset scan state to first step in scan order
+		this.scan_state = this.scan_order[0];
 		this.scan_data = {
 			location_verified: false,
 			batch_verified: false,
-			item_verified: false
+			item_verified: false,
+			box_verified: false
 		};
 		this.scanned_qty = item.picked_qty || 0;
+		this.current_box = '#1';
 
 		this.$detail.html(`
 			<div class="wms-detail-container">
@@ -204,11 +239,11 @@ class WMSPickOptimization {
 				<div class="wms-info-card">
 					<div class="wms-info-row">
 						<span class="octicon octicon-package"></span>
-						<span>${__('Pick SKU')}: <strong>${item.item_code}</strong></span>
+						<span>Pick SKU: <strong>${item.item_code}</strong></span>
 					</div>
 					<div class="wms-info-row">
 						<span class="octicon octicon-inbox"></span>
-						<span>${__('Add to box')}: <strong>#1</strong></span>
+						<span>Add to box: <strong id="current-box">${this.current_box}</strong></span>
 					</div>
 				</div>
 
@@ -221,20 +256,7 @@ class WMSPickOptimization {
 				<!-- Scanning Section -->
 				<div class="wms-scan-section">
 					<div class="wms-scan-indicator">
-						<div class="wms-scan-step ${this.scan_data.location_verified ? 'verified' : (this.scan_state === SCAN_STATE.LOCATION ? 'active' : '')}">
-							<span class="octicon ${this.scan_data.location_verified ? 'octicon-check' : 'octicon-location'}"></span>
-							${__('Location')}
-						</div>
-						${item.has_batch_no ? `
-							<div class="wms-scan-step ${this.scan_data.batch_verified ? 'verified' : (this.scan_state === SCAN_STATE.BATCH ? 'active' : '')}">
-								<span class="octicon ${this.scan_data.batch_verified ? 'octicon-check' : 'octicon-versions'}"></span>
-								${__('Batch')}
-							</div>
-						` : ''}
-						<div class="wms-scan-step ${this.scan_data.item_verified ? 'verified' : (this.scan_state === SCAN_STATE.ITEM ? 'active' : '')}">
-							<span class="octicon ${this.scan_data.item_verified ? 'octicon-check' : 'octicon-package'}"></span>
-							${__('Item')}
-						</div>
+						${this.render_scan_steps(item)}
 					</div>
 
 					<!-- Universal Scan Input -->
@@ -270,7 +292,7 @@ class WMSPickOptimization {
 
 				<!-- Confirm Button -->
 				<button class="wms-confirm-btn" ${this.can_confirm() ? '' : 'disabled'}>
-					${__('Confirm pick')}
+					Confirm Pick
 				</button>
 			</div>
 		`);
@@ -281,36 +303,67 @@ class WMSPickOptimization {
 		this.render_items_list();
 	}
 
+	render_scan_steps(item) {
+		let steps_html = '';
+
+		this.scan_order.forEach(step_type => {
+			// Skip batch if item doesn't have batch tracking
+			if (step_type === 'batch' && !item.has_batch_no) {
+				return;
+			}
+
+			const is_verified = this.scan_data[`${step_type}_verified`];
+			const is_active = this.scan_state === step_type;
+
+			const icons = {
+				location: 'location',
+				batch: 'versions',
+				item: 'package',
+				box: 'inbox'
+			};
+
+			const labels = {
+				location: 'LOCATION',
+				batch: 'BATCH',
+				item: 'ITEM',
+				box: 'BOX'
+			};
+
+			steps_html += `
+				<div class="wms-scan-step ${is_active ? 'active' : ''} ${is_verified ? 'verified' : ''}">
+					<span class="octicon octicon-${is_verified ? 'check' : icons[step_type]}"></span>
+					${labels[step_type]}
+				</div>
+			`;
+		});
+
+		return steps_html;
+	}
+
 	get_scan_placeholder() {
-		switch (this.scan_state) {
-			case SCAN_STATE.LOCATION:
-				return __('Scan location...');
-			case SCAN_STATE.BATCH:
-				return __('Scan batch number...');
-			case SCAN_STATE.ITEM:
-				return __('Scan item code or barcode...');
-			case SCAN_STATE.QUANTITY:
-				return __('Scan to add quantity...');
-			default:
-				return __('Scan...');
-		}
+		const placeholders = {
+			location: 'Scan location...',
+			batch: 'Scan batch number...',
+			item: 'Scan item code or barcode...',
+			box: 'Scan box barcode...',
+			quantity: 'Scan to add quantity...'
+		};
+
+		return placeholders[this.scan_state] || 'Scan...';
 	}
 
 	get_scan_hint() {
 		const item = this.pick_items[this.current_item_idx];
 
-		switch (this.scan_state) {
-			case SCAN_STATE.LOCATION:
-				return `${__('Expected')}: ${item.warehouse}`;
-			case SCAN_STATE.BATCH:
-				return __('Scan batch number or enter manually');
-			case SCAN_STATE.ITEM:
-				return `${__('Expected')}: ${item.item_code}`;
-			case SCAN_STATE.QUANTITY:
-				return __('Scan item again to increment, or use +/- buttons');
-			default:
-				return '';
-		}
+		const hints = {
+			location: `Expected: ${item.warehouse}`,
+			batch: 'Scan batch number or enter manually',
+			item: `Expected: ${item.item_code}`,
+			box: 'Scan box barcode or enter box number',
+			quantity: 'Scan item again to increment, or use +/- buttons'
+		};
+
+		return hints[this.scan_state] || '';
 	}
 
 	setup_scan_input() {
@@ -341,19 +394,23 @@ class WMSPickOptimization {
 		const item = this.pick_items[this.current_item_idx];
 
 		switch (this.scan_state) {
-			case SCAN_STATE.LOCATION:
+			case 'location':
 				this.verify_location(scanned_value, item);
 				break;
 
-			case SCAN_STATE.BATCH:
+			case 'batch':
 				this.verify_batch(scanned_value, item);
 				break;
 
-			case SCAN_STATE.ITEM:
+			case 'item':
 				this.verify_item(scanned_value, item);
 				break;
 
-			case SCAN_STATE.QUANTITY:
+			case 'box':
+				this.verify_box(scanned_value, item);
+				break;
+
+			case 'quantity':
 				// If scanning item again, increment quantity
 				if (scanned_value === item.item_code || scanned_value === item.barcode) {
 					this.increment_quantity();
@@ -363,40 +420,32 @@ class WMSPickOptimization {
 	}
 
 	verify_location(scanned, item) {
-		// Accept any location scan for now (could be validated against bin locations)
+		// Accept any location scan for now
 		if (scanned) {
 			this.scan_data.location_verified = true;
 			this.scan_data.scanned_location = scanned;
 
 			frappe.show_alert({
-				message: __('Location verified'),
+				message: 'Location verified',
 				indicator: 'green'
 			}, 1);
 
-			// Move to next state
-			if (item.has_batch_no) {
-				this.scan_state = SCAN_STATE.BATCH;
-			} else {
-				this.scan_state = SCAN_STATE.ITEM;
-			}
-
-			this.show_item_detail(this.current_item_idx);
+			this.move_to_next_step(item);
 		}
 	}
 
 	verify_batch(scanned, item) {
-		// Accept batch scan (could be validated against available batches)
+		// Accept batch scan
 		if (scanned) {
 			this.scan_data.batch_verified = true;
 			this.scan_data.scanned_batch = scanned;
 
 			frappe.show_alert({
-				message: __('Batch verified'),
+				message: 'Batch verified',
 				indicator: 'green'
 			}, 1);
 
-			this.scan_state = SCAN_STATE.ITEM;
-			this.show_item_detail(this.current_item_idx);
+			this.move_to_next_step(item);
 		}
 	}
 
@@ -405,26 +454,69 @@ class WMSPickOptimization {
 			this.scan_data.item_verified = true;
 
 			frappe.show_alert({
-				message: __('Item verified!'),
+				message: 'Item verified!',
 				indicator: 'green'
 			}, 1);
 
 			// Auto-increment quantity on first scan
 			this.increment_quantity();
 
-			this.scan_state = SCAN_STATE.QUANTITY;
-			this.show_item_detail(this.current_item_idx);
+			this.move_to_next_step(item);
 		} else {
 			frappe.show_alert({
-				message: __('Wrong item! Expected: {0}', [item.item_code]),
+				message: `Wrong item! Expected: ${item.item_code}`,
 				indicator: 'red'
 			}, 3);
 		}
 	}
 
-	setup_quantity_controls() {
-		const item = this.pick_items[this.current_item_idx];
+	verify_box(scanned, item) {
+		if (scanned) {
+			this.scan_data.box_verified = true;
+			this.scan_data.scanned_box = scanned;
+			this.current_box = scanned;
 
+			// Update box display
+			this.$detail.find('#current-box').text(this.current_box);
+
+			frappe.show_alert({
+				message: `Box ${scanned} verified`,
+				indicator: 'green'
+			}, 1);
+
+			this.move_to_next_step(item);
+		}
+	}
+
+	move_to_next_step(item) {
+		// Find next step in scan order
+		const current_idx = this.scan_order.indexOf(this.scan_state);
+
+		if (current_idx < this.scan_order.length - 1) {
+			let next_idx = current_idx + 1;
+			let next_step = this.scan_order[next_idx];
+
+			// Skip batch if item doesn't have batch tracking
+			if (next_step === 'batch' && !item.has_batch_no) {
+				next_idx++;
+				if (next_idx < this.scan_order.length) {
+					next_step = this.scan_order[next_idx];
+				} else {
+					this.scan_state = 'quantity';
+					this.show_item_detail(this.current_item_idx);
+					return;
+				}
+			}
+
+			this.scan_state = next_step;
+		} else {
+			this.scan_state = 'quantity';
+		}
+
+		this.show_item_detail(this.current_item_idx);
+	}
+
+	setup_quantity_controls() {
 		// Plus button
 		this.$detail.find('.wms-qty-plus').on('click', () => {
 			this.increment_quantity();
@@ -449,7 +541,7 @@ class WMSPickOptimization {
 			this.update_quantity_display();
 		} else {
 			frappe.show_alert({
-				message: __('Maximum quantity reached'),
+				message: 'Maximum quantity reached',
 				indicator: 'orange'
 			}, 1);
 		}
@@ -476,9 +568,21 @@ class WMSPickOptimization {
 	}
 
 	can_confirm() {
-		return this.scan_data.location_verified &&
-		       this.scan_data.item_verified &&
-		       this.scanned_qty > 0;
+		// Check that all required steps are verified
+		const required_steps = this.scan_order.filter(step => {
+			// Batch is not required if item doesn't have it
+			if (step === 'batch') {
+				const item = this.pick_items[this.current_item_idx];
+				return item.has_batch_no;
+			}
+			return true;
+		});
+
+		const all_verified = required_steps.every(step =>
+			this.scan_data[`${step}_verified`]
+		);
+
+		return all_verified && this.scanned_qty > 0;
 	}
 
 	confirm_pick() {
@@ -489,11 +593,12 @@ class WMSPickOptimization {
 		// Mark as picked
 		item.picked = true;
 		item.picked_qty = this.scanned_qty;
+		item.box = this.current_box;
 		this.completed_count++;
 
 		// Show success
 		frappe.show_alert({
-			message: __('Item {0} picked!', [item.item_code]),
+			message: `Item ${item.item_code} picked!`,
 			indicator: 'green'
 		}, 2);
 
@@ -516,18 +621,18 @@ class WMSPickOptimization {
 				<div class="wms-completion-icon">
 					<span class="octicon octicon-check"></span>
 				</div>
-				<h2>${__('Picking Complete!')}</h2>
-				<p>${__('All {0} items have been picked.', [this.total_items])}</p>
+				<h2>Picking Complete!</h2>
+				<p>All ${this.total_items} items have been picked.</p>
 				<button class="wms-confirm-btn" onclick="frappe.set_route('Form', 'Pick List', '${this.pick_list}')">
-					${__('Back to Pick List')}
+					Back to Pick List
 				</button>
 			</div>
 		`);
 
 		frappe.msgprint({
-			title: __('Success!'),
+			title: 'Success!',
 			indicator: 'green',
-			message: __('All items picked successfully!')
+			message: 'All items picked successfully!'
 		});
 	}
 }
