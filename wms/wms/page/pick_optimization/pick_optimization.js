@@ -47,14 +47,20 @@ class WMSPickOptimization {
 
 	load_settings() {
 		frappe.call({
-			method: 'frappe.client.get_single',
-			args: { doctype: 'WMS Settings' },
+			method: 'frappe.desk.form.load.getdoc',
+			args: {
+				doctype: 'WMS Settings',
+				name: 'WMS Settings'
+			},
 			callback: (r) => {
-				if (r.message && r.message.scan_steps && r.message.scan_steps.length > 0) {
-					// Use custom scan order from settings
-					this.scan_order = r.message.scan_steps
-						.sort((a, b) => a.sequence - b.sequence)
-						.map(step => step.step_type.toLowerCase());
+				if (r.docs && r.docs[0]) {
+					const settings = r.docs[0];
+					if (settings.scan_steps && settings.scan_steps.length > 0) {
+						// Use custom scan order from settings
+						this.scan_order = settings.scan_steps
+							.sort((a, b) => a.sequence - b.sequence)
+							.map(step => step.step_type.toLowerCase());
+					}
 				}
 			}
 		});
