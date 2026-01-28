@@ -79,6 +79,11 @@ scheduler_events = {
 
 # before_tests = "wms.install.before_tests"
 
+# Installation
+# ------------
+
+after_install = "wms.install.after_install"
+
 # Overriding Methods
 # ------------------------------
 #

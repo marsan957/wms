@@ -258,6 +258,58 @@ def get_item_barcode(item_code):
     return barcode or item_code
 
 @frappe.whitelist()
+def lock_pick_list(pick_list):
+    """Lock a pick list for picking by current user"""
+    doc = frappe.get_doc('Pick List', pick_list)
+
+    # Check if already locked by someone else
+    if doc.get('wms_locked_by') and doc.wms_locked_by != frappe.session.user:
+        # Check if lock is stale (older than 30 minutes)
+        if doc.get('wms_locked_at'):
+            from frappe.utils import get_datetime, now_datetime
+            lock_time = get_datetime(doc.wms_locked_at)
+            current_time = now_datetime()
+            minutes_diff = (current_time - lock_time).total_seconds() / 60
+
+            if minutes_diff < 30:
+                # Lock is still valid
+                locked_user = frappe.get_value('User', doc.wms_locked_by, 'full_name')
+                return {
+                    'success': False,
+                    'locked': True,
+                    'locked_by': locked_user,
+                    'message': _('This pick list is currently being picked by {0}').format(locked_user)
+                }
+
+    # Lock the pick list
+    doc.wms_locked_by = frappe.session.user
+    doc.wms_locked_at = frappe.utils.now()
+    doc.save(ignore_permissions=True)
+    frappe.db.commit()
+
+    return {
+        'success': True,
+        'locked': False,
+        'message': 'Pick list locked successfully'
+    }
+
+@frappe.whitelist()
+def unlock_pick_list(pick_list):
+    """Unlock a pick list"""
+    doc = frappe.get_doc('Pick List', pick_list)
+
+    # Only unlock if locked by current user
+    if doc.get('wms_locked_by') == frappe.session.user:
+        doc.wms_locked_by = None
+        doc.wms_locked_at = None
+        doc.save(ignore_permissions=True)
+        frappe.db.commit()
+
+        return {'success': True, 'message': 'Pick list unlocked'}
+
+    return {'success': False, 'message': 'Not locked by you'}
+
+@frappe.whitelist()
 def update_pick_progress(pick_list, item_idx, picked_qty, location=None, batch_no=None, box=None):
     """Update picking progress for a specific item"""
     doc = frappe.get_doc('Pick List', pick_list)

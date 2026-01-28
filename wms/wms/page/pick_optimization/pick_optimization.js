@@ -42,7 +42,71 @@ class WMSPickOptimization {
 
 		this.setup_page();
 		this.load_settings();
-		this.load_data();
+		this.try_lock_pick_list();
+
+		// Unlock on page unload
+		$(window).on('beforeunload', () => {
+			this.unlock_pick_list();
+		});
+
+		// Unlock when navigating away
+		frappe.router.on('change', () => {
+			this.unlock_pick_list();
+		});
+	}
+
+	try_lock_pick_list() {
+		frappe.call({
+			method: 'wms.api.lock_pick_list',
+			args: { pick_list: this.pick_list },
+			callback: (r) => {
+				if (r.message && !r.message.success) {
+					// Locked by someone else
+					frappe.msgprint({
+						title: 'Pick List Locked',
+						indicator: 'orange',
+						message: r.message.message
+					});
+
+					// Show locked message in UI
+					this.show_locked_message(r.message.locked_by);
+				} else {
+					// Successfully locked, load data
+					this.load_data();
+				}
+			}
+		});
+	}
+
+	unlock_pick_list() {
+		// Silent unlock - don't show messages
+		if (this.pick_list) {
+			frappe.call({
+				method: 'wms.api.unlock_pick_list',
+				args: { pick_list: this.pick_list },
+				async: false  // Ensure it completes before page unload
+			});
+		}
+	}
+
+	show_locked_message(locked_by) {
+		this.$detail.html(`
+			<div class="wms-detail-container">
+				<div class="wms-completion">
+					<div class="wms-completion-icon" style="background: var(--orange-500);">
+						<span class="octicon octicon-lock"></span>
+					</div>
+					<h2>Pick List Locked</h2>
+					<p>This pick list is currently being picked by <strong>${locked_by}</strong>.</p>
+					<p style="color: var(--text-muted); font-size: 14px; margin-top: 10px;">
+						Please wait until they complete or the lock expires (30 minutes).
+					</p>
+					<button class="wms-confirm-btn" onclick="frappe.set_route('Form', 'Pick List', '${this.pick_list}')">
+						Back to Pick List
+					</button>
+				</div>
+			</div>
+		`);
 	}
 
 	load_settings() {
@@ -688,6 +752,9 @@ class WMSPickOptimization {
 	}
 
 	show_completion() {
+		// Unlock the pick list
+		this.unlock_pick_list();
+
 		this.$detail.html(`
 			<div class="wms-completion">
 				<div class="wms-completion-icon">
