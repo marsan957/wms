@@ -2,27 +2,26 @@
 
 frappe.ui.form.on('Pick List', {
     refresh: function(frm) {
-        // Add Optimized Pick View button
-        if (frm.doc.docstatus === 0 && frm.doc.locations && frm.doc.locations.length > 0) {
-            frm.add_custom_button(__('Optimerad Plockvy'), function() {
-                wms.open_optimized_pick_view(frm);
-            }, __('WMS'));
-
-            frm.add_custom_button(__('Optimera Rutt'), function() {
-                wms.optimize_pick_route(frm);
-            }, __('WMS'));
-        }
-
-        // Add barcode scanning for submitted pick lists
-        if (frm.doc.docstatus === 1 && frm.doc.locations) {
-            frm.add_custom_button(__('Starta Plockning'), function() {
-                wms.start_picking(frm);
-            }, __('WMS'));
-        }
-
         // Show pick list statistics
         if (frm.doc.locations && frm.doc.locations.length > 0) {
             wms.show_pick_stats(frm);
+        }
+
+        // Add buttons based on status
+        if (frm.doc.locations && frm.doc.locations.length > 0) {
+            // Draft status - show optimization buttons
+            if (frm.doc.status === 'Draft') {
+                frm.add_custom_button(__('Optimera Rutt'), function() {
+                    wms.optimize_pick_route(frm);
+                }, __('WMS'));
+            }
+
+            // Open or Draft - show pick button
+            if (frm.doc.status === 'Open' || frm.doc.status === 'Draft') {
+                frm.add_custom_button(__('Start Picking'), function() {
+                    wms.open_optimized_pick_view(frm);
+                }, __('WMS')).addClass('btn-primary');
+            }
         }
     },
 
