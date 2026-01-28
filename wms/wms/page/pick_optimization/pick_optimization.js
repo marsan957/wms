@@ -353,7 +353,8 @@ class WMSPickOptimization {
 			batch: 'Scan batch number...',
 			item: 'Scan item code or barcode...',
 			box: 'Scan box barcode...',
-			quantity: 'Scan to add quantity...'
+			quantity: 'Scan to add quantity...',
+			complete: 'All steps verified - Click Confirm'
 		};
 
 		return placeholders[this.scan_state] || 'Scan...';
@@ -367,7 +368,8 @@ class WMSPickOptimization {
 			batch: 'Scan batch number or enter manually',
 			item: `Expected: ${item.item_code}`,
 			box: 'Scan box barcode or enter box number',
-			quantity: 'Scan item again to increment, or use +/- buttons'
+			quantity: 'Scan item again to increment, or use +/- buttons',
+			complete: 'Ready to confirm pick'
 		};
 
 		return hints[this.scan_state] || '';
@@ -470,20 +472,8 @@ class WMSPickOptimization {
 			// Auto-increment quantity on first scan
 			this.increment_quantity();
 
-			// Check if we need to scan box after item
-			const current_idx = this.scan_order.indexOf('item');
-			const has_box_after_item = current_idx < this.scan_order.length - 1 &&
-			                            this.scan_order[current_idx + 1] === 'box';
-
-			// If qty is 1 and no box scanning required, we're ready to confirm
-			if (item.qty === 1 && !has_box_after_item) {
-				// Skip to end - ready to confirm
-				this.scan_state = 'quantity';
-				this.update_scan_ui();
-			} else {
-				// Move to next step (might be box first, then quantity)
-				this.move_to_next_step(item);
-			}
+			// Always move to next step - it will handle box or quantity correctly
+			this.move_to_next_step(item);
 		} else {
 			frappe.show_alert({
 				message: `Wrong item! Expected: ${item.item_code}`,
@@ -506,13 +496,8 @@ class WMSPickOptimization {
 				indicator: 'green'
 			}, 1);
 
-			// If qty is 1, we're ready to confirm after box scan
-			if (item.qty === 1 && this.scanned_qty === 1) {
-				this.scan_state = 'quantity';
-				this.update_scan_ui();
-			} else {
-				this.move_to_next_step(item);
-			}
+			// Move to next step (will handle qty=1 logic)
+			this.move_to_next_step(item);
 		}
 	}
 
@@ -530,7 +515,13 @@ class WMSPickOptimization {
 				if (next_idx < this.scan_order.length) {
 					next_step = this.scan_order[next_idx];
 				} else {
-					this.scan_state = 'quantity';
+					// Reached end of scan_order after skipping batch
+					// Only move to quantity if qty > 1
+					if (item.qty > 1) {
+						this.scan_state = 'quantity';
+					} else {
+						this.scan_state = 'complete';
+					}
 					this.update_scan_ui();
 					return;
 				}
@@ -538,7 +529,13 @@ class WMSPickOptimization {
 
 			this.scan_state = next_step;
 		} else {
-			this.scan_state = 'quantity';
+			// Reached end of scan_order
+			// Only move to quantity state if qty > 1
+			if (item.qty > 1) {
+				this.scan_state = 'quantity';
+			} else {
+				this.scan_state = 'complete';
+			}
 		}
 
 		// Only update scan UI, don't re-render entire page
@@ -558,6 +555,9 @@ class WMSPickOptimization {
 			.focus();
 
 		this.$detail.find('.wms-scan-hint').text(this.get_scan_hint());
+
+		// Update confirm button state
+		this.$detail.find('.wms-confirm-btn').prop('disabled', !this.can_confirm());
 	}
 
 	setup_quantity_controls() {
