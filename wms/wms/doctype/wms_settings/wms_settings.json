@@ -1,0 +1,129 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-28 16:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "picking_section",
+  "enable_barcode_scanning",
+  "enable_route_optimization",
+  "auto_create_pick_session",
+  "column_break_1",
+  "enable_sound",
+  "enable_vibration",
+  "packing_section",
+  "auto_create_packing_slip",
+  "default_packing_location",
+  "column_break_2",
+  "max_package_weight",
+  "max_package_volume"
+ ],
+ "fields": [
+  {
+   "fieldname": "picking_section",
+   "fieldtype": "Section Break",
+   "label": "Picking Settings"
+  },
+  {
+   "default": "1",
+   "fieldname": "enable_barcode_scanning",
+   "fieldtype": "Check",
+   "label": "Enable Barcode Scanning"
+  },
+  {
+   "default": "1",
+   "fieldname": "enable_route_optimization",
+   "fieldtype": "Check",
+   "label": "Enable Route Optimization"
+  },
+  {
+   "default": "0",
+   "fieldname": "auto_create_pick_session",
+   "fieldtype": "Check",
+   "label": "Auto Create Pick Session"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "enable_sound",
+   "fieldtype": "Check",
+   "label": "Enable Sound Feedback"
+  },
+  {
+   "default": "1",
+   "fieldname": "enable_vibration",
+   "fieldtype": "Check",
+   "label": "Enable Vibration (Mobile)"
+  },
+  {
+   "fieldname": "packing_section",
+   "fieldtype": "Section Break",
+   "label": "Packing Settings"
+  },
+  {
+   "default": "0",
+   "fieldname": "auto_create_packing_slip",
+   "fieldtype": "Check",
+   "label": "Auto Create Packing Slip"
+  },
+  {
+   "fieldname": "default_packing_location",
+   "fieldtype": "Link",
+   "label": "Default Packing Location",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "25",
+   "fieldname": "max_package_weight",
+   "fieldtype": "Float",
+   "label": "Max Package Weight (kg)"
+  },
+  {
+   "default": "0.1",
+   "fieldname": "max_package_volume",
+   "fieldtype": "Float",
+   "label": "Max Package Volume (m\u00b3)"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-01-28 16:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "WMS",
+ "name": "WMS Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Stock Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
