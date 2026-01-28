@@ -231,6 +231,7 @@ def get_pick_list_details(pick_list):
             'item_code': loc.item_code,
             'item_name': loc.item_name,
             'qty': loc.qty,
+            'picked_qty': loc.get('picked_qty') or 0,
             'uom': loc.uom,
             'warehouse': loc.warehouse,
             'location': loc.get('location') or '',

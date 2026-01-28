@@ -195,6 +195,17 @@ class WMSPickOptimization {
 				if (r.message) {
 					this.pick_items = r.message.items;
 					this.total_items = r.message.total_items;
+
+					// Count already completed items
+					this.completed_count = 0;
+					this.pick_items.forEach(item => {
+						// Mark as completed if picked_qty matches qty
+						if (item.picked_qty && item.picked_qty >= item.qty) {
+							item.picked = true;
+							this.completed_count++;
+						}
+					});
+
 					this.render();
 				}
 			}
@@ -204,8 +215,17 @@ class WMSPickOptimization {
 	render() {
 		this.render_progress();
 		this.render_items_list();
+
 		if (this.pick_items.length > 0) {
-			this.show_item_detail(0);
+			// Find first non-completed item
+			let first_unpicked = this.pick_items.findIndex(item => !item.picked);
+
+			if (first_unpicked === -1) {
+				// All items are already picked
+				this.show_completion();
+			} else {
+				this.show_item_detail(first_unpicked);
+			}
 		}
 	}
 
@@ -232,9 +252,11 @@ class WMSPickOptimization {
 			const is_active = idx === this.current_item_idx;
 			const is_completed = item.picked || false;
 			const picked_qty = item.picked_qty || 0;
+			const is_partial = picked_qty > 0 && picked_qty < item.qty;
+			const pick_percent = (picked_qty / item.qty) * 100;
 
 			html += `
-				<div class="wms-item-card ${is_active ? 'active' : ''} ${is_completed ? 'completed' : ''}"
+				<div class="wms-item-card ${is_active ? 'active' : ''} ${is_completed ? 'completed' : ''} ${is_partial ? 'partial' : ''}"
 				     data-idx="${idx}"
 				     onclick="wms.select_item(${idx})">
 					${item.image ?
@@ -254,6 +276,7 @@ class WMSPickOptimization {
 					<div class="wms-item-qty">
 						<div class="wms-qty-label">Pick</div>
 						<div class="wms-qty-value">${picked_qty} / ${item.qty}</div>
+						${is_partial ? `<div class="wms-qty-progress" style="width: ${pick_percent}%"></div>` : ''}
 					</div>
 					${is_completed ? '<div class="wms-item-check"><span class="octicon octicon-check"></span></div>' : ''}
 				</div>
@@ -273,6 +296,18 @@ class WMSPickOptimization {
 		this.current_item_idx = idx;
 		const item = this.pick_items[idx];
 
+		// If item is already fully picked, move to next
+		if (item.picked_qty >= item.qty) {
+			let next_idx = this.pick_items.findIndex((itm, i) => i > idx && !itm.picked);
+			if (next_idx !== -1) {
+				this.show_item_detail(next_idx);
+				return;
+			} else {
+				this.show_completion();
+				return;
+			}
+		}
+
 		// Reset scan state to first step in scan order
 		this.scan_state = this.scan_order[0];
 		this.scan_data = {
@@ -281,6 +316,7 @@ class WMSPickOptimization {
 			item_verified: false,
 			box_verified: false
 		};
+		// Start from already picked quantity
 		this.scanned_qty = item.picked_qty || 0;
 		this.current_box = '#1';
 

@@ -161,6 +161,11 @@
 	border-color: var(--green-500);
 }
 
+.wms-item-card.partial {
+	background: var(--orange-50);
+	border-color: var(--orange-300);
+}
+
 .wms-item-image {
 	width: 60px;
 	height: 60px;
@@ -213,6 +218,7 @@
 .wms-item-qty {
 	text-align: right;
 	flex-shrink: 0;
+	position: relative;
 }
 
 .wms-qty-label {
@@ -220,6 +226,16 @@
 	color: var(--text-muted);
 	text-transform: uppercase;
 	margin-bottom: 2px;
+}
+
+.wms-qty-progress {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	height: 3px;
+	background: var(--orange-500);
+	border-radius: 2px;
+	transition: width 0.3s ease;
 }
 
 .wms-qty-value {
