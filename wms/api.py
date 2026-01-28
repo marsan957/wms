@@ -312,6 +312,42 @@ def lock_pick_list(pick_list, session_id=None):
     }
 
 @frappe.whitelist()
+def get_wms_dashboard_data():
+    """Get WMS dashboard statistics and open pick lists"""
+    from frappe.utils import today
+
+    # Get statistics
+    stats = {
+        'open_picks': frappe.db.count('Pick List', {'status': 'Open', 'docstatus': 0}),
+        'in_progress': frappe.db.count('Pick List', {'wms_locked_by': ['is', 'set']}),
+        'completed_today': frappe.db.count('Pick List', {
+            'status': 'Completed',
+            'modified': ['>=', today()]
+        })
+    }
+
+    # Get open pick lists
+    pick_lists = frappe.get_all('Pick List',
+        filters={'status': 'Open', 'docstatus': 0},
+        fields=['name', 'status', 'wms_locked_by', 'wms_locked_at', 'creation'],
+        order_by='creation desc',
+        limit=20
+    )
+
+    # Add user names and item counts
+    for pick in pick_lists:
+        if pick.wms_locked_by:
+            pick['locked_by_name'] = frappe.get_value('User', pick.wms_locked_by, 'full_name')
+
+        # Count items
+        pick['total_items'] = frappe.db.count('Pick List Item', {'parent': pick.name})
+
+    return {
+        'stats': stats,
+        'pick_lists': pick_lists
+    }
+
+@frappe.whitelist()
 def unlock_pick_list(pick_list):
     """Unlock a pick list"""
     doc = frappe.get_doc('Pick List', pick_list)

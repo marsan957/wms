@@ -7,9 +7,9 @@
  "modified": "2026-01-28 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "WMS",
- "name": "pick-optimization",
+ "name": "pick",
  "owner": "Administrator",
- "page_name": "pick-optimization",
+ "page_name": "pick",
  "roles": [
   {
    "role": "Stock User"
@@ -20,5 +20,5 @@
  ],
  "standard": "Yes",
  "system_page": 0,
- "title": "Pick Optimization"
+ "title": "Pick"
 }

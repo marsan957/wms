@@ -43,7 +43,7 @@ frappe.ui.form.on('Pick List', {
 frappe.provide('wms');
 
 wms.open_optimized_pick_view = function(frm) {
-    frappe.set_route('pick-optimization', frm.doc.name);
+    frappe.set_route('pick', frm.doc.name);
 };
 
 wms.optimize_pick_route = function(frm) {

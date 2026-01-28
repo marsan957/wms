@@ -1,11 +1,11 @@
-frappe.pages['pick-optimization'].on_page_load = function(wrapper) {
+frappe.pages['pick'].on_page_load = function(wrapper) {
 	let page = frappe.ui.make_app_page({
 		parent: wrapper,
-		title: 'Pick Optimization',
+		title: 'Pick',
 		single_column: true
 	});
 
-	page.wms = new WMSPickOptimization(page);
+	page.wms = new WMSPick(page);
 };
 
 // Scanning states
@@ -18,7 +18,7 @@ const SCAN_STATE = {
 	COMPLETE: 'complete'
 };
 
-class WMSPickOptimization {
+class WMSPick {
 	constructor(page) {
 		this.page = page;
 		this.pick_list = frappe.get_route()[1];
