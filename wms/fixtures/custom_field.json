@@ -1,6 +1,7 @@
 [
  {
   "doctype": "Custom Field",
+  "name": "Pick List-wms_section",
   "dt": "Pick List",
   "fieldname": "wms_section",
   "fieldtype": "Section Break",
@@ -14,6 +15,7 @@
  },
  {
   "doctype": "Custom Field",
+  "name": "Pick List-wms_locked_by",
   "dt": "Pick List",
   "fieldname": "wms_locked_by",
   "fieldtype": "Link",
@@ -29,6 +31,7 @@
  },
  {
   "doctype": "Custom Field",
+  "name": "Pick List-wms_locked_at",
   "dt": "Pick List",
   "fieldname": "wms_locked_at",
   "fieldtype": "Datetime",
@@ -43,6 +46,7 @@
  },
  {
   "doctype": "Custom Field",
+  "name": "Pick List-wms_column_break",
   "dt": "Pick List",
   "fieldname": "wms_column_break",
   "fieldtype": "Column Break",
