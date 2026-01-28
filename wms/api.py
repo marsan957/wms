@@ -226,6 +226,15 @@ def get_pick_list_details(pick_list):
     for loc in doc.locations:
         item_doc = frappe.get_cached_doc('Item', loc.item_code)
 
+        # Determine order reference
+        order_ref = None
+        if loc.get('sales_order'):
+            order_ref = loc.sales_order
+        elif loc.get('material_request'):
+            order_ref = loc.material_request
+        elif loc.get('work_order'):
+            order_ref = loc.work_order
+
         items.append({
             'idx': loc.idx,
             'item_code': loc.item_code,
@@ -238,7 +247,11 @@ def get_pick_list_details(pick_list):
             'batch_no': loc.get('batch_no') or '',
             'has_batch_no': item_doc.has_batch_no or 0,
             'image': item_doc.image,
-            'barcode': get_item_barcode(loc.item_code)
+            'barcode': get_item_barcode(loc.item_code),
+            'order_ref': order_ref,
+            'sales_order': loc.get('sales_order') or '',
+            'material_request': loc.get('material_request') or '',
+            'work_order': loc.get('work_order') or ''
         })
 
     return {

@@ -40,8 +40,13 @@ class WMSPick {
 		// Generate unique session ID for this tab
 		this.session_id = this.generate_session_id();
 
-		// Scan order configuration (default)
-		this.scan_order = ['location', 'batch', 'item', 'box'];
+		// Box tracking - automatic per order
+		this.current_box = null;
+		this.box_counter = 1;
+		this.order_boxes = {}; // Map order_ref -> box_name
+
+		// Scan order configuration (default) - removed 'box' since it's automatic
+		this.scan_order = ['location', 'batch', 'item'];
 
 		this.setup_page();
 		this.load_settings();
@@ -217,13 +222,32 @@ class WMSPick {
 					this.pick_items = r.message.items;
 					this.total_items = r.message.total_items;
 
-					// Count already completed items
+					// Count already completed items and assign boxes per order
 					this.completed_count = 0;
+					this.order_boxes = {}; // Map order_ref -> box_name
+					let box_num = 1;
+
 					this.pick_items.forEach(item => {
 						// Mark as completed if picked_qty matches qty
 						if (item.picked_qty && item.picked_qty >= item.qty) {
 							item.picked = true;
 							this.completed_count++;
+						}
+
+						// Assign box per order automatically
+						if (item.order_ref) {
+							if (!this.order_boxes[item.order_ref]) {
+								this.order_boxes[item.order_ref] = `BOX-${String(box_num).padStart(3, '0')}`;
+								box_num++;
+							}
+							item.auto_box = this.order_boxes[item.order_ref];
+						} else {
+							// No order ref, use generic box
+							if (!this.order_boxes['_no_order']) {
+								this.order_boxes['_no_order'] = `BOX-${String(box_num).padStart(3, '0')}`;
+								box_num++;
+							}
+							item.auto_box = this.order_boxes['_no_order'];
 						}
 					});
 
@@ -337,9 +361,15 @@ class WMSPick {
 			item_verified: false,
 			box_verified: false
 		};
+
 		// Start from already picked quantity
 		this.scanned_qty = item.picked_qty || 0;
-		this.current_box = '#1';
+
+		// Automatically use box assigned to this order
+		this.current_box = item.auto_box || `BOX-${String(this.box_counter).padStart(3, '0')}`;
+
+		// Auto-verify box since it's automatic
+		this.scan_data.box_verified = true;
 
 		this.$detail.html(`
 			<div class="wms-detail-container">
@@ -355,6 +385,12 @@ class WMSPick {
 
 				<!-- Pick Info Card -->
 				<div class="wms-info-card">
+					${item.order_ref ? `
+						<div class="wms-info-row" style="background: var(--primary-100); padding: 8px; border-radius: 4px; margin-bottom: 8px;">
+							<span class="octicon octicon-file-text"></span>
+							<span>Order: <strong>${item.order_ref}</strong></span>
+						</div>
+					` : ''}
 					<div class="wms-info-row">
 						<span class="octicon octicon-location"></span>
 						<span>Location: <strong>${item.warehouse}${item.location ? ' - ' + item.location : ''}</strong></span>
@@ -371,7 +407,7 @@ class WMSPick {
 					</div>
 					<div class="wms-info-row">
 						<span class="octicon octicon-inbox"></span>
-						<span>Add to box: <strong id="current-box">${this.current_box}</strong></span>
+						<span>Add to box: <strong id="current-box" style="color: var(--primary);">${this.current_box}</strong></span>
 					</div>
 				</div>
 
@@ -473,7 +509,6 @@ class WMSPick {
 			location: 'Scan location...',
 			batch: 'Scan batch number...',
 			item: 'Scan item code or barcode...',
-			box: 'Scan box barcode...',
 			quantity: 'Scan to add quantity...',
 			complete: 'All steps verified - Click Confirm'
 		};
@@ -488,7 +523,6 @@ class WMSPick {
 			location: `Expected: ${item.warehouse}`,
 			batch: 'Scan batch number or enter manually',
 			item: `Expected: ${item.item_code}`,
-			box: 'Scan box barcode or enter box number',
 			quantity: 'Scan item again to increment, or use +/- buttons',
 			complete: 'Ready to confirm pick'
 		};
@@ -536,10 +570,6 @@ class WMSPick {
 
 			case 'item':
 				this.verify_item(scanned_value, item);
-				break;
-
-			case 'box':
-				this.verify_box(scanned_value, item);
 				break;
 
 			case 'quantity':
@@ -600,25 +630,6 @@ class WMSPick {
 				message: `Wrong item! Expected: ${item.item_code}`,
 				indicator: 'red'
 			}, 3);
-		}
-	}
-
-	verify_box(scanned, item) {
-		if (scanned) {
-			this.scan_data.box_verified = true;
-			this.scan_data.scanned_box = scanned;
-			this.current_box = scanned;
-
-			// Update box display
-			this.$detail.find('#current-box').text(this.current_box);
-
-			frappe.show_alert({
-				message: `Box ${scanned} verified`,
-				indicator: 'green'
-			}, 1);
-
-			// Move to next step (will handle qty=1 logic)
-			this.move_to_next_step(item);
 		}
 	}
 
