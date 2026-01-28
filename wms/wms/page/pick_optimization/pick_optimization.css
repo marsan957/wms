@@ -1,0 +1,296 @@
+/* WMS Pick Optimization - Optimized for Warehouse Operations */
+
+.page-pick-optimization .page-body {
+	margin-top: 15px;
+}
+
+/* Progress Section */
+.page-pick-optimization .indicator-pill-wrapper {
+	margin-bottom: 15px;
+}
+
+.page-pick-optimization .indicator-pill {
+	padding: 12px 16px;
+	font-size: var(--text-lg);
+}
+
+.page-pick-optimization .indicator-pill-label {
+	display: block;
+	font-size: var(--text-sm);
+	margin-bottom: 4px;
+}
+
+.page-pick-optimization .indicator-pill-value {
+	font-size: var(--text-2xl);
+	font-weight: 700;
+}
+
+/* Items List - Left Sidebar */
+.page-pick-optimization .list-item-container {
+	margin-top: 15px;
+}
+
+.page-pick-optimization .list-item {
+	display: flex;
+	align-items: center;
+	padding: 16px;
+	border: 2px solid var(--border-color);
+	border-radius: var(--border-radius-md);
+	margin-bottom: 10px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	background: white;
+}
+
+.page-pick-optimization .list-item:hover {
+	background-color: var(--control-bg-on-gray);
+	border-color: var(--gray-500);
+	box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.page-pick-optimization .list-item.active {
+	background-color: var(--primary-100);
+	border-color: var(--primary);
+	border-width: 3px;
+	padding: 15px; /* Compensate for border width */
+}
+
+.page-pick-optimization .list-item.completed {
+	background-color: var(--green-100);
+	border-color: var(--green-500);
+	opacity: 0.7;
+}
+
+.page-pick-optimization .list-item-content {
+	flex: 1;
+	min-width: 0;
+}
+
+.page-pick-optimization .list-item-title {
+	font-weight: 600;
+	font-size: var(--text-base);
+	margin-bottom: 6px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.page-pick-optimization .list-item-subtitle {
+	font-size: var(--text-sm);
+	color: var(--text-muted);
+	margin-bottom: 4px;
+}
+
+.page-pick-optimization .list-item-action {
+	margin-left: 12px;
+}
+
+.page-pick-optimization .list-item-action .badge {
+	font-size: var(--text-base);
+	padding: 8px 12px;
+	font-weight: 600;
+}
+
+/* Item Detail - Right Side */
+.page-pick-optimization .image-preview {
+	background: var(--control-bg);
+	border: 2px solid var(--border-color);
+	border-radius: var(--border-radius-md);
+	padding: 30px;
+	margin-bottom: 20px;
+	min-height: 250px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.page-pick-optimization .image-preview img {
+	border-radius: var(--border-radius);
+}
+
+.page-pick-optimization .no-image {
+	text-align: center;
+	color: var(--gray-400);
+}
+
+.page-pick-optimization .frappe-card {
+	margin-bottom: 15px;
+	border: 1px solid var(--border-color);
+}
+
+.page-pick-optimization .frappe-card-head {
+	padding: 16px 20px;
+	border-bottom: 1px solid var(--border-color);
+	background: var(--control-bg);
+}
+
+.page-pick-optimization .frappe-card-body {
+	padding: 24px;
+}
+
+/* Location Alert */
+.page-pick-optimization .alert-info {
+	background: var(--blue-100);
+	border-color: var(--blue-300);
+	color: var(--blue-700);
+	padding: 16px;
+	font-size: var(--text-lg);
+	border-radius: var(--border-radius-md);
+	margin-bottom: 24px;
+}
+
+.page-pick-optimization .alert-info strong {
+	font-weight: 700;
+}
+
+/* Form Section - Optimized for Scanning */
+.page-pick-optimization .form-section {
+	margin-top: 20px;
+}
+
+.page-pick-optimization .form-section .frappe-control {
+	margin-bottom: 24px;
+}
+
+.page-pick-optimization .form-section .control-label {
+	font-size: var(--text-md);
+	font-weight: 600;
+	margin-bottom: 8px;
+	color: var(--text-color);
+}
+
+.page-pick-optimization .form-section input[type="text"],
+.page-pick-optimization .form-section input[type="number"] {
+	font-size: var(--text-xl);
+	padding: 16px;
+	border: 2px solid var(--border-color);
+	border-radius: var(--border-radius-md);
+	transition: all 0.2s;
+	font-weight: 500;
+}
+
+.page-pick-optimization .form-section input[type="text"]:focus,
+.page-pick-optimization .form-section input[type="number"]:focus {
+	border-color: var(--primary);
+	box-shadow: 0 0 0 3px var(--primary-100);
+}
+
+/* Input Validation States */
+.page-pick-optimization .form-section .has-success input {
+	border-color: var(--green-500);
+	background-color: var(--green-50);
+}
+
+.page-pick-optimization .form-section .has-error input {
+	border-color: var(--red-500);
+	background-color: var(--red-50);
+}
+
+/* Quantity Input - Extra Large for Warehouse */
+.page-pick-optimization .form-section input[name="qty"] {
+	font-size: 32px;
+	font-weight: 700;
+	text-align: center;
+	color: var(--primary);
+}
+
+/* Primary Action - Large and Prominent */
+.page-pick-optimization .page-head-content .btn-primary-light {
+	font-size: var(--text-lg);
+	padding: 12px 24px;
+	font-weight: 600;
+}
+
+/* Navigation Buttons */
+.page-pick-optimization .prev-btn,
+.page-pick-optimization .next-btn {
+	min-width: 100px;
+	padding: 8px 16px;
+	font-size: var(--text-base);
+}
+
+/* Indicators */
+.page-pick-optimization .indicator {
+	font-size: var(--text-base);
+	font-weight: 600;
+	padding: 8px 16px;
+}
+
+.page-pick-optimization .indicator.green {
+	background-color: var(--green-100);
+	color: var(--green-700);
+}
+
+.page-pick-optimization .indicator.blue {
+	background-color: var(--blue-100);
+	color: var(--blue-700);
+}
+
+/* Status Pills in List */
+.page-pick-optimization .indicator-pill {
+	font-size: var(--text-xs);
+	padding: 4px 10px;
+	font-weight: 700;
+	border-radius: var(--border-radius-full);
+}
+
+.page-pick-optimization .indicator-pill.green {
+	background-color: var(--green-500);
+	color: white;
+}
+
+.page-pick-optimization .indicator-pill.blue {
+	background-color: var(--blue-500);
+	color: white;
+}
+
+/* Completion Screen */
+.page-pick-optimization .completion-screen {
+	padding: 80px 20px;
+}
+
+.page-pick-optimization .completion-screen .octicon-check {
+	color: var(--green-500);
+}
+
+/* Mobile Responsive - Touch Friendly */
+@media (max-width: 768px) {
+	.page-pick-optimization .form-section input[type="text"],
+	.page-pick-optimization .form-section input[type="number"] {
+		font-size: 18px;
+		padding: 18px;
+	}
+
+	.page-pick-optimization .list-item {
+		padding: 18px;
+	}
+
+	.page-pick-optimization .prev-btn,
+	.page-pick-optimization .next-btn {
+		padding: 10px 14px;
+	}
+}
+
+/* High Contrast for Warehouse Environment */
+@media (prefers-contrast: high) {
+	.page-pick-optimization .list-item {
+		border-width: 3px;
+	}
+
+	.page-pick-optimization .form-section input {
+		border-width: 3px;
+	}
+}
+
+/* Print Styles */
+@media print {
+	.page-pick-optimization .items-list-wrapper,
+	.page-pick-optimization .progress-wrapper,
+	.page-pick-optimization .frappe-card-head {
+		display: none;
+	}
+
+	.page-pick-optimization .image-preview {
+		border: 1px solid #000;
+	}
+}
