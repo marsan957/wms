@@ -512,7 +512,7 @@ class WMSPickOptimization {
 					next_step = this.scan_order[next_idx];
 				} else {
 					this.scan_state = 'quantity';
-					this.show_item_detail(this.current_item_idx);
+					this.update_scan_ui();
 					return;
 				}
 			}
@@ -522,7 +522,23 @@ class WMSPickOptimization {
 			this.scan_state = 'quantity';
 		}
 
-		this.show_item_detail(this.current_item_idx);
+		// Only update scan UI, don't re-render entire page
+		this.update_scan_ui();
+	}
+
+	update_scan_ui() {
+		const item = this.pick_items[this.current_item_idx];
+
+		// Update scan step indicators
+		this.$detail.find('.wms-scan-indicator').html(this.render_scan_steps(item));
+
+		// Update input placeholder and hint
+		this.$detail.find('#universal-scan-input')
+			.attr('placeholder', this.get_scan_placeholder())
+			.val('')
+			.focus();
+
+		this.$detail.find('.wms-scan-hint').text(this.get_scan_hint());
 	}
 
 	setup_quantity_controls() {
