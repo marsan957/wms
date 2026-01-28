@@ -265,8 +265,8 @@ def update_pick_progress(pick_list, item_idx, picked_qty, location=None, batch_n
     # Find the location row by idx
     for loc in doc.locations:
         if loc.idx == int(item_idx):
-            # Update picked quantity
-            loc.picked_qty = picked_qty
+            # Update picked quantity (convert to float)
+            loc.picked_qty = float(picked_qty)
 
             # Update location if scanned
             if location:
