@@ -234,6 +234,8 @@ def get_pick_list_details(pick_list):
             'uom': loc.uom,
             'warehouse': loc.warehouse,
             'location': loc.get('location') or '',
+            'batch_no': loc.get('batch_no') or '',
+            'has_batch_no': item_doc.has_batch_no or 0,
             'image': item_doc.image,
             'barcode': get_item_barcode(loc.item_code)
         })

@@ -235,6 +235,16 @@ class WMSPickOptimization {
 				<!-- Pick Info Card -->
 				<div class="wms-info-card">
 					<div class="wms-info-row">
+						<span class="octicon octicon-location"></span>
+						<span>Location: <strong>${item.warehouse}${item.location ? ' - ' + item.location : ''}</strong></span>
+					</div>
+					${item.has_batch_no && item.batch_no ? `
+						<div class="wms-info-row">
+							<span class="octicon octicon-versions"></span>
+							<span>Batch: <strong>${item.batch_no}</strong></span>
+						</div>
+					` : ''}
+					<div class="wms-info-row">
 						<span class="octicon octicon-package"></span>
 						<span>Pick SKU: <strong>${item.item_code}</strong></span>
 					</div>
@@ -366,7 +376,7 @@ class WMSPickOptimization {
 	setup_scan_input() {
 		const $input = this.$detail.find('#universal-scan-input');
 
-		// Auto-focus
+		// Auto-focus only on initial load
 		setTimeout(() => $input.focus(), 100);
 
 		// Handle scan/input
@@ -376,14 +386,16 @@ class WMSPickOptimization {
 				const value = $input.val().trim();
 				if (value) {
 					this.process_scan(value);
-					$input.val('').focus();
+					$input.val('');
+					// Re-focus after processing scan
+					setTimeout(() => $input.focus(), 100);
 				}
 			}
 		});
 
-		// Keep input focused
-		$input.on('blur', () => {
-			setTimeout(() => $input.focus(), 100);
+		// Optional: Click to re-focus (instead of auto blur-focus)
+		$input.on('click', () => {
+			$input.focus();
 		});
 	}
 
