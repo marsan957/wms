@@ -14,9 +14,49 @@
 /* Mobile Tabs Wrapper - Hidden on Desktop */
 .wms-mobile-tabs-wrapper {
 	display: none;
-	padding: 12px;
+	padding: 8px 12px;
 	background: white;
 	border-bottom: 1px solid var(--border-color);
+}
+
+.wms-tabs {
+	display: flex;
+	gap: 8px;
+	max-width: 500px;
+	margin: 0 auto;
+}
+
+.wms-tab-button {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 10px 16px;
+	background: var(--gray-50);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-md);
+	color: var(--text-muted);
+	font-size: var(--text-base);
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s;
+}
+
+.wms-tab-button:hover {
+	background: var(--gray-100);
+	border-color: var(--gray-400);
+}
+
+.wms-tab-button.active {
+	background: var(--primary);
+	border-color: var(--primary);
+	color: white;
+	box-shadow: var(--shadow-sm);
+}
+
+.wms-tab-button .octicon {
+	font-size: 16px;
 }
 
 /* Content Wrapper */

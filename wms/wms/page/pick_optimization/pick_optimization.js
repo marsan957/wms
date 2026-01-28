@@ -61,11 +61,22 @@ class WMSPickOptimization {
 	}
 
 	setup_page() {
-		// Setup responsive layout with Frappe Tabs
+		// Setup responsive layout with custom tabs
 		this.page.main.html(`
 			<div class="wms-pick-container">
 				<!-- Mobile Tab Navigation -->
-				<div class="wms-mobile-tabs-wrapper"></div>
+				<div class="wms-mobile-tabs-wrapper">
+					<div class="wms-tabs">
+						<button class="wms-tab-button" data-tab="items">
+							<span class="octicon octicon-checklist"></span>
+							Items
+						</button>
+						<button class="wms-tab-button active" data-tab="detail">
+							<span class="octicon octicon-package"></span>
+							Detail
+						</button>
+					</div>
+				</div>
 
 				<div class="wms-content-wrapper">
 					<!-- Left: Items List -->
@@ -86,40 +97,22 @@ class WMSPickOptimization {
 		this.$items_list = this.page.main.find('.wms-items-list');
 		this.$detail = this.page.main.find('.wms-item-detail');
 
-		// Setup Frappe Tabs for mobile
-		this.setup_frappe_tabs();
+		// Setup tab button handlers
+		this.page.main.find('.wms-tab-button').on('click', (e) => {
+			const tab = $(e.currentTarget).data('tab');
+			this.switch_tab(tab);
+		});
 
 		// Make instance accessible globally
 		window.wms = this;
 	}
 
-	setup_frappe_tabs() {
-		const tabs_wrapper = this.page.main.find('.wms-mobile-tabs-wrapper');
-
-		this.tabs = new frappe.ui.Tabs({
-			parent: tabs_wrapper,
-			tabs: [
-				{
-					label: 'Items',
-					value: 'items'
-				},
-				{
-					label: 'Detail',
-					value: 'detail'
-				}
-			]
-		});
-
-		// Listen to tab changes
-		this.tabs.on_tab_change = (tab) => {
-			this.switch_tab(tab.value);
-		};
-
-		// Set detail tab as active by default
-		this.tabs.set_value('detail');
-	}
-
 	switch_tab(tab) {
+		// Update button states
+		this.page.main.find('.wms-tab-button').removeClass('active');
+		this.page.main.find(`.wms-tab-button[data-tab="${tab}"]`).addClass('active');
+
+		// Update content visibility
 		this.page.main.find('.wms-tab-content').removeClass('active');
 		this.page.main.find(`.wms-tab-content[data-tab="${tab}"]`).addClass('active');
 	}
@@ -203,9 +196,7 @@ class WMSPickOptimization {
 	select_item(idx) {
 		this.show_item_detail(idx);
 		// Auto-switch to detail tab on mobile
-		if (this.tabs) {
-			this.tabs.set_value('detail');
-		}
+		this.switch_tab('detail');
 	}
 
 	show_item_detail(idx) {
