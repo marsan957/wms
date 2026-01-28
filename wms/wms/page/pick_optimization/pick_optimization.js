@@ -470,7 +470,20 @@ class WMSPickOptimization {
 			// Auto-increment quantity on first scan
 			this.increment_quantity();
 
-			this.move_to_next_step(item);
+			// Check if we need to scan box after item
+			const current_idx = this.scan_order.indexOf('item');
+			const has_box_after_item = current_idx < this.scan_order.length - 1 &&
+			                            this.scan_order[current_idx + 1] === 'box';
+
+			// If qty is 1 and no box scanning required, we're ready to confirm
+			if (item.qty === 1 && !has_box_after_item) {
+				// Skip to end - ready to confirm
+				this.scan_state = 'quantity';
+				this.update_scan_ui();
+			} else {
+				// Move to next step (might be box first, then quantity)
+				this.move_to_next_step(item);
+			}
 		} else {
 			frappe.show_alert({
 				message: `Wrong item! Expected: ${item.item_code}`,
@@ -493,7 +506,13 @@ class WMSPickOptimization {
 				indicator: 'green'
 			}, 1);
 
-			this.move_to_next_step(item);
+			// If qty is 1, we're ready to confirm after box scan
+			if (item.qty === 1 && this.scanned_qty === 1) {
+				this.scan_state = 'quantity';
+				this.update_scan_ui();
+			} else {
+				this.move_to_next_step(item);
+			}
 		}
 	}
 
@@ -615,29 +634,57 @@ class WMSPickOptimization {
 
 		const item = this.pick_items[this.current_item_idx];
 
-		// Mark as picked
-		item.picked = true;
-		item.picked_qty = this.scanned_qty;
-		item.box = this.current_box;
-		this.completed_count++;
+		// Update Pick List in database
+		frappe.call({
+			method: 'wms.api.update_pick_progress',
+			args: {
+				pick_list: this.pick_list,
+				item_idx: item.idx,
+				picked_qty: this.scanned_qty,
+				location: this.scan_data.scanned_location || item.warehouse,
+				batch_no: this.scan_data.scanned_batch || item.batch_no || '',
+				box: this.current_box
+			},
+			callback: (r) => {
+				if (r.message && r.message.success) {
+					// Mark as picked locally
+					item.picked = true;
+					item.picked_qty = this.scanned_qty;
+					item.box = this.current_box;
+					this.completed_count++;
 
-		// Show success
-		frappe.show_alert({
-			message: `Item ${item.item_code} picked!`,
-			indicator: 'green'
-		}, 2);
+					// Show success
+					frappe.show_alert({
+						message: `Item ${item.item_code} picked!`,
+						indicator: 'green'
+					}, 2);
 
-		// Update progress
-		this.render_progress();
+					// Update progress
+					this.render_progress();
 
-		// Move to next or show completion
-		if (this.current_item_idx < this.pick_items.length - 1) {
-			setTimeout(() => {
-				this.show_item_detail(this.current_item_idx + 1);
-			}, 300);
-		} else {
-			this.show_completion();
-		}
+					// Move to next or show completion
+					if (this.current_item_idx < this.pick_items.length - 1) {
+						setTimeout(() => {
+							this.show_item_detail(this.current_item_idx + 1);
+						}, 300);
+					} else {
+						this.show_completion();
+					}
+				} else {
+					frappe.show_alert({
+						message: 'Failed to update pick list',
+						indicator: 'red'
+					}, 3);
+				}
+			},
+			error: (err) => {
+				frappe.show_alert({
+					message: 'Error updating pick list',
+					indicator: 'red'
+				}, 3);
+				console.error('Pick update error:', err);
+			}
+		});
 	}
 
 	show_completion() {

@@ -258,28 +258,39 @@ def get_item_barcode(item_code):
     return barcode or item_code
 
 @frappe.whitelist()
-def update_pick_progress(pick_list, item_code, warehouse, qty_picked):
-    """Update picking progress"""
+def update_pick_progress(pick_list, item_idx, picked_qty, location=None, batch_no=None, box=None):
+    """Update picking progress for a specific item"""
     doc = frappe.get_doc('Pick List', pick_list)
 
+    # Find the location row by idx
     for loc in doc.locations:
-        if loc.item_code == item_code and loc.warehouse == warehouse:
-            if hasattr(loc, 'wms_picked_qty'):
-                loc.wms_picked_qty = (loc.wms_picked_qty or 0) + qty_picked
+        if loc.idx == int(item_idx):
+            # Update picked quantity
+            loc.picked_qty = picked_qty
 
-            # Mark as picked if complete
-            if loc.wms_picked_qty >= loc.qty:
-                if hasattr(loc, 'wms_picked'):
-                    loc.wms_picked = 1
+            # Update location if scanned
+            if location:
+                loc.location = location
 
-            doc.save()
-            break
+            # Update batch if scanned
+            if batch_no:
+                loc.batch_no = batch_no
 
-    # Publish realtime update
-    frappe.publish_realtime('pick_progress_updated', {
-        'pick_list': pick_list,
-        'item_code': item_code,
-        'qty_picked': qty_picked
-    }, user=frappe.session.user)
+            # Add custom field for box tracking (if exists)
+            if box and hasattr(loc, 'wms_box'):
+                loc.wms_box = box
 
-    return {'success': True}
+            # Save the document
+            doc.save(ignore_permissions=True)
+            frappe.db.commit()
+
+            # Publish realtime update
+            frappe.publish_realtime('pick_progress_updated', {
+                'pick_list': pick_list,
+                'item_idx': item_idx,
+                'picked_qty': picked_qty
+            }, user=frappe.session.user)
+
+            return {'success': True, 'message': 'Pick updated successfully'}
+
+    return {'success': False, 'message': 'Item not found in pick list'}
