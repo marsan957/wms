@@ -84,6 +84,25 @@ scheduler_events = {
 
 after_install = "wms.install.after_install"
 
+# Fixtures
+# --------
+
+fixtures = [
+    {
+        "dt": "Custom Field",
+        "filters": [
+            [
+                "name", "in", [
+                    "Pick List-wms_section",
+                    "Pick List-wms_locked_by",
+                    "Pick List-wms_locked_at",
+                    "Pick List-wms_column_break"
+                ]
+            ]
+        ]
+    }
+]
+
 # Overriding Methods
 # ------------------------------
 #
