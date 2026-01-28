@@ -259,12 +259,12 @@ def get_item_barcode(item_code):
     return barcode or item_code
 
 @frappe.whitelist()
-def lock_pick_list(pick_list):
+def lock_pick_list(pick_list, session_id=None):
     """Lock a pick list for picking by current user"""
     doc = frappe.get_doc('Pick List', pick_list)
 
-    # Check if already locked by someone else
-    if doc.get('wms_locked_by') and doc.wms_locked_by != frappe.session.user:
+    # Check if already locked
+    if doc.get('wms_locked_by'):
         # Check if lock is stale (older than 30 minutes)
         if doc.get('wms_locked_at'):
             from frappe.utils import get_datetime, now_datetime
@@ -273,18 +273,35 @@ def lock_pick_list(pick_list):
             minutes_diff = (current_time - lock_time).total_seconds() / 60
 
             if minutes_diff < 30:
-                # Lock is still valid
+                # Check if same session (same tab)
+                stored_session = doc.get('wms_session_id')
+                if stored_session and stored_session == session_id:
+                    # Same tab refreshing - allow
+                    doc.wms_locked_at = frappe.utils.now()
+                    doc.save(ignore_permissions=True)
+                    frappe.db.commit()
+                    return {
+                        'success': True,
+                        'locked': False,
+                        'message': 'Pick list locked successfully'
+                    }
+
+                # Lock is still valid and it's a different tab/user
                 locked_user = frappe.get_value('User', doc.wms_locked_by, 'full_name')
+                is_same_user = doc.wms_locked_by == frappe.session.user
+
                 return {
                     'success': False,
                     'locked': True,
                     'locked_by': locked_user,
-                    'message': _('This pick list is currently being picked by {0}').format(locked_user)
+                    'is_same_user': is_same_user,
+                    'message': _('This pick list is currently being picked by {0}').format(locked_user) if not is_same_user else _('This pick list is open in another tab')
                 }
 
     # Lock the pick list
     doc.wms_locked_by = frappe.session.user
     doc.wms_locked_at = frappe.utils.now()
+    doc.wms_session_id = session_id
     doc.save(ignore_permissions=True)
     frappe.db.commit()
 

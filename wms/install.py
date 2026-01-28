@@ -35,9 +35,17 @@ def create_wms_custom_fields():
                 "insert_after": "wms_locked_by"
             },
             {
+                "fieldname": "wms_session_id",
+                "fieldtype": "Data",
+                "label": "Session ID",
+                "read_only": 1,
+                "hidden": 1,
+                "insert_after": "wms_locked_at"
+            },
+            {
                 "fieldname": "wms_column_break",
                 "fieldtype": "Column Break",
-                "insert_after": "wms_locked_at"
+                "insert_after": "wms_session_id"
             }
         ]
     }

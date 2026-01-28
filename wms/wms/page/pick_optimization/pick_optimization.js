@@ -37,6 +37,9 @@ class WMSPickOptimization {
 		this.scan_data = {};
 		this.scanned_qty = 0;
 
+		// Generate unique session ID for this tab
+		this.session_id = this.generate_session_id();
+
 		// Scan order configuration (default)
 		this.scan_order = ['location', 'batch', 'item', 'box'];
 
@@ -55,21 +58,31 @@ class WMSPickOptimization {
 		});
 	}
 
+	generate_session_id() {
+		// Generate unique session ID for this browser tab
+		return `${frappe.session.user}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+	}
+
 	try_lock_pick_list() {
 		frappe.call({
 			method: 'wms.api.lock_pick_list',
-			args: { pick_list: this.pick_list },
+			args: {
+				pick_list: this.pick_list,
+				session_id: this.session_id
+			},
 			callback: (r) => {
 				if (r.message && !r.message.success) {
-					// Locked by someone else
+					// Locked by someone else or another tab
+					const msg = r.message;
+
 					frappe.msgprint({
 						title: 'Pick List Locked',
 						indicator: 'orange',
-						message: r.message.message
+						message: msg.message
 					});
 
 					// Show locked message in UI
-					this.show_locked_message(r.message.locked_by);
+					this.show_locked_message(msg.locked_by, msg.is_same_user);
 				} else {
 					// Successfully locked, load data
 					this.load_data();
@@ -89,7 +102,15 @@ class WMSPickOptimization {
 		}
 	}
 
-	show_locked_message(locked_by) {
+	show_locked_message(locked_by, is_same_user) {
+		const message_text = is_same_user
+			? `You have this pick list open in another tab.`
+			: `This pick list is currently being picked by <strong>${locked_by}</strong>.`;
+
+		const detail_text = is_same_user
+			? `Please close the other tab or use that tab to continue picking.`
+			: `Please wait until they complete or the lock expires (30 minutes).`;
+
 		this.$detail.html(`
 			<div class="wms-detail-container">
 				<div class="wms-completion">
@@ -97,9 +118,9 @@ class WMSPickOptimization {
 						<span class="octicon octicon-lock"></span>
 					</div>
 					<h2>Pick List Locked</h2>
-					<p>This pick list is currently being picked by <strong>${locked_by}</strong>.</p>
+					<p>${message_text}</p>
 					<p style="color: var(--text-muted); font-size: 14px; margin-top: 10px;">
-						Please wait until they complete or the lock expires (30 minutes).
+						${detail_text}
 					</p>
 					<button class="wms-confirm-btn" onclick="frappe.set_route('Form', 'Pick List', '${this.pick_list}')">
 						Back to Pick List
