@@ -9,24 +9,11 @@ def validate(doc, method):
 
 def on_submit(doc, method):
     """Actions to perform when Pick List is submitted"""
-    # Create picking session if auto-create is enabled
-    settings = frappe.get_cached_doc('WMS Settings', None)
-
-    if settings and settings.auto_create_pick_session:
-        create_picking_session(doc)
+    pass
 
 def before_cancel(doc, method):
     """Actions before Pick List is cancelled"""
-    # Clean up any related picking sessions
-    sessions = frappe.get_all('WMS Pick Session',
-        filters={'pick_list': doc.name, 'status': ['!=', 'Completed']},
-        pluck='name'
-    )
-
-    for session in sessions:
-        session_doc = frappe.get_doc('WMS Pick Session', session)
-        session_doc.status = 'Cancelled'
-        session_doc.save()
+    pass
 
 def validate_warehouse_locations(doc):
     """Validate that all items have proper warehouse locations"""
@@ -54,19 +41,3 @@ def calculate_pick_metrics(doc):
         doc.wms_total_qty = total_qty
     if hasattr(doc, 'wms_estimated_minutes'):
         doc.wms_estimated_minutes = estimated_minutes
-
-def create_picking_session(pick_list_doc):
-    """Create a WMS Pick Session for this Pick List"""
-    try:
-        session = frappe.get_doc({
-            'doctype': 'WMS Pick Session',
-            'pick_list': pick_list_doc.name,
-            'picker': frappe.session.user,
-            'status': 'Open',
-            'start_time': frappe.utils.now()
-        })
-        session.insert(ignore_permissions=True)
-
-        frappe.msgprint(_("Picking session {0} created").format(session.name))
-    except Exception as e:
-        frappe.log_error(f"Failed to create picking session: {str(e)}")

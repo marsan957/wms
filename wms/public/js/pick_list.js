@@ -68,49 +68,6 @@ wms.optimize_pick_route = function(frm) {
     });
 };
 
-wms.start_picking = function(frm) {
-    let d = new frappe.ui.Dialog({
-        title: __('Starta Plockning'),
-        fields: [
-            {
-                fieldname: 'picker',
-                fieldtype: 'Link',
-                label: __('Plockare'),
-                options: 'User',
-                default: frappe.session.user,
-                reqd: 1
-            },
-            {
-                fieldname: 'scan_mode',
-                fieldtype: 'Check',
-                label: __('Använd Streckkodsläsare'),
-                default: 1
-            }
-        ],
-        primary_action_label: __('Börja Plocka'),
-        primary_action: function(values) {
-            d.hide();
-
-            // Create picking session
-            frappe.call({
-                method: 'wms.api.create_picking_session',
-                args: {
-                    pick_list: frm.doc.name,
-                    picker: values.picker,
-                    scan_mode: values.scan_mode
-                },
-                callback: function(r) {
-                    if (r.message) {
-                        frappe.set_route('pick-session', r.message.name);
-                    }
-                }
-            });
-        }
-    });
-
-    d.show();
-};
-
 wms.show_pick_stats = function(frm) {
     if (!frm.doc.locations) return;
 

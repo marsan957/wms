@@ -820,8 +820,89 @@ class WMSPick {
 	}
 
 	show_completion() {
-		// Unlock the pick list
-		this.unlock_pick_list();
+		// Show loading message
+		this.$detail.html(`
+			<div class="wms-completion">
+				<div class="wms-completion-icon">
+					<span class="octicon octicon-sync"></span>
+				</div>
+				<h2>Picking Complete!</h2>
+				<p>Creating delivery notes...</p>
+			</div>
+		`);
+
+		// Call API to create delivery notes
+		frappe.call({
+			method: 'wms.api.create_delivery_notes_from_pick_list',
+			args: {
+				pick_list: this.pick_list
+			},
+			callback: (r) => {
+				// Unlock the pick list
+				this.unlock_pick_list();
+
+				if (r.message && r.message.success) {
+					const count = r.message.count;
+					const dns = r.message.delivery_notes;
+
+					// Show completion with delivery note links
+					this.show_delivery_note_links(dns);
+
+					frappe.show_alert({
+						message: `Picking complete! Created ${count} delivery note(s)`,
+						indicator: 'green'
+					}, 5);
+				} else {
+					// Still show completion but without delivery notes
+					this.$detail.html(`
+						<div class="wms-completion">
+							<div class="wms-completion-icon">
+								<span class="octicon octicon-check"></span>
+							</div>
+							<h2>Picking Complete!</h2>
+							<p>All ${this.total_items} items have been picked.</p>
+							<p class="text-muted">No delivery notes created (no sales orders found).</p>
+							<button class="wms-confirm-btn" onclick="frappe.set_route('Form', 'Pick List', '${this.pick_list}')">
+								Back to Pick List
+							</button>
+						</div>
+					`);
+				}
+			},
+			error: (err) => {
+				// Unlock on error
+				this.unlock_pick_list();
+
+				console.error('Error creating delivery notes:', err);
+				this.$detail.html(`
+					<div class="wms-completion">
+						<div class="wms-completion-icon">
+							<span class="octicon octicon-alert"></span>
+						</div>
+						<h2>Picking Complete!</h2>
+						<p>All ${this.total_items} items picked, but failed to create delivery notes.</p>
+						<p class="text-muted">${err.message || 'Unknown error'}</p>
+						<button class="wms-confirm-btn" onclick="frappe.set_route('Form', 'Pick List', '${this.pick_list}')">
+							Back to Pick List
+						</button>
+					</div>
+				`);
+			}
+		});
+	}
+
+	show_delivery_note_links(delivery_notes) {
+		let links_html = '';
+		delivery_notes.forEach(dn => {
+			links_html += `
+				<div class="wms-dn-link">
+					<a href="/app/delivery-note/${dn}" target="_blank">
+						<span class="octicon octicon-package"></span>
+						${dn}
+					</a>
+				</div>
+			`;
+		});
 
 		this.$detail.html(`
 			<div class="wms-completion">
@@ -830,16 +911,14 @@ class WMSPick {
 				</div>
 				<h2>Picking Complete!</h2>
 				<p>All ${this.total_items} items have been picked.</p>
+				<p>Created ${delivery_notes.length} delivery note(s):</p>
+				<div class="wms-dn-links">
+					${links_html}
+				</div>
 				<button class="wms-confirm-btn" onclick="frappe.set_route('Form', 'Pick List', '${this.pick_list}')">
 					Back to Pick List
 				</button>
 			</div>
 		`);
-
-		frappe.msgprint({
-			title: 'Success!',
-			indicator: 'green',
-			message: 'All items picked successfully!'
-		});
 	}
 }

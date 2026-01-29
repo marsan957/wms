@@ -2,6 +2,13 @@
 
 frappe.ui.form.on('Delivery Note', {
     refresh: function(frm) {
+        // Add Pack button (for delivery notes from pick lists)
+        if (frm.doc.docstatus === 0 && frm.doc.pick_list && !frm.doc.wms_packing_complete) {
+            frm.add_custom_button(__('Pack'), function() {
+                frappe.set_route('pack', frm.doc.name);
+            }, __('WMS'));
+        }
+
         // Add Quick Pack button
         if (frm.doc.docstatus === 0 && frm.doc.items && frm.doc.items.length > 0) {
             frm.add_custom_button(__('Snabbpackning'), function() {
@@ -11,6 +18,16 @@ frappe.ui.form.on('Delivery Note', {
             frm.add_custom_button(__('Optimera Paket'), function() {
                 wms.optimize_packing(frm);
             }, __('WMS'));
+        }
+
+        // Show shipment link if exists
+        if (frm.doc.wms_shipment) {
+            frm.dashboard.add_comment(`
+                <div style="padding: 10px; background: #d1fae5; border-left: 4px solid #10b981;">
+                    <strong>Shipment Created:</strong>
+                    <a href="/app/wms-shipment/${frm.doc.wms_shipment}">${frm.doc.wms_shipment}</a>
+                </div>
+            `, true);
         }
 
         // Show packing suggestions

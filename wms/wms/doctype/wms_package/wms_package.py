@@ -1,9 +1,8 @@
-# Copyright (c) 2026, Your Company and contributors
+# Copyright (c) 2024, Frappe Technologies and contributors
 # For license information, please see license.txt
 
 import frappe
 from frappe.model.document import Document
 
-
-class WMSPickSession(Document):
+class WMSPackage(Document):
 	pass

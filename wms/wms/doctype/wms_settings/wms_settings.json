@@ -9,7 +9,6 @@
   "picking_section",
   "enable_barcode_scanning",
   "enable_route_optimization",
-  "auto_create_pick_session",
   "column_break_1",
   "enable_sound",
   "enable_vibration",
@@ -41,12 +40,6 @@
    "label": "Enable Route Optimization"
   },
   {
-   "default": "0",
-   "fieldname": "auto_create_pick_session",
-   "fieldtype": "Check",
-   "label": "Auto Create Pick Session"
-  },
-  {
    "fieldname": "column_break_1",
    "fieldtype": "Column Break"
   },
@@ -72,7 +65,7 @@
    "fieldtype": "Table",
    "label": "Scan Steps",
    "options": "WMS Scan Step",
-   "description": "Define the order of scanning steps. Default: Location → Batch → Item → Box"
+   "description": "Define the order of scanning steps. Default: Location → Batch → Item. Box is auto-assigned per order."
   },
   {
    "fieldname": "packing_section",

@@ -64,23 +64,6 @@ def optimize_pick_route(pick_list):
     }
 
 @frappe.whitelist()
-def create_picking_session(pick_list, picker, scan_mode=1):
-    """Create a new picking session"""
-    session = frappe.get_doc({
-        'doctype': 'WMS Pick Session',
-        'pick_list': pick_list,
-        'picker': picker,
-        'scan_mode': scan_mode,
-        'status': 'In Progress',
-        'start_time': frappe.utils.now()
-    })
-
-    session.insert()
-    frappe.db.commit()
-
-    return session
-
-@frappe.whitelist()
 def get_default_packing_location():
     """Get default packing location from settings"""
     settings = frappe.get_cached_doc('WMS Settings', None)
@@ -413,3 +396,358 @@ def update_pick_progress(pick_list, item_idx, picked_qty, location=None, batch_n
             return {'success': True, 'message': 'Pick updated successfully'}
 
     return {'success': False, 'message': 'Item not found in pick list'}
+
+@frappe.whitelist()
+def create_delivery_notes_from_pick_list(pick_list):
+    """
+    Auto-create delivery notes grouped by sales order
+    Called when picking is complete
+    """
+    doc = frappe.get_doc('Pick List', pick_list)
+
+    if not doc.locations:
+        frappe.throw(_("No items in pick list"))
+
+    # Group items by sales_order
+    order_groups = {}
+    for loc in doc.locations:
+        # Get the sales order reference from location
+        order_ref = loc.get('sales_order') or 'NO_ORDER'
+
+        if order_ref not in order_groups:
+            order_groups[order_ref] = []
+        order_groups[order_ref].append(loc)
+
+    # Create delivery note per order
+    created_dns = []
+    for order_ref, items in order_groups.items():
+        # Skip material requests/work orders for now
+        if order_ref == 'NO_ORDER':
+            continue
+
+        try:
+            dn = _create_delivery_note(doc, items, order_ref)
+            created_dns.append(dn.name)
+        except Exception as e:
+            frappe.log_error(f"Error creating delivery note for {order_ref}: {str(e)}")
+            frappe.throw(_("Failed to create delivery note for {0}: {1}").format(order_ref, str(e)))
+
+    return {
+        'success': True,
+        'delivery_notes': created_dns,
+        'count': len(created_dns)
+    }
+
+def _create_delivery_note(pick_list_doc, location_items, sales_order_ref):
+    """
+    Helper function to create a delivery note from pick list items
+    """
+    # Get sales order to fetch customer and other details
+    sales_order = frappe.get_doc('Sales Order', sales_order_ref)
+
+    # Create new delivery note
+    dn = frappe.new_doc('Delivery Note')
+    dn.customer = sales_order.customer
+    dn.posting_date = frappe.utils.today()
+    dn.set_posting_time = 0
+
+    # Link to pick list
+    if hasattr(dn, 'pick_list'):
+        dn.pick_list = pick_list_doc.name
+
+    # Copy customer details from sales order
+    dn.customer_name = sales_order.customer_name
+    dn.contact_person = sales_order.contact_person
+    dn.contact_display = sales_order.contact_display
+    dn.contact_mobile = sales_order.contact_mobile
+    dn.contact_email = sales_order.contact_email
+    dn.shipping_address_name = sales_order.shipping_address_name
+    dn.shipping_address = sales_order.shipping_address
+    dn.dispatch_address_name = sales_order.dispatch_address_name
+    dn.dispatch_address = sales_order.dispatch_address
+    dn.company = sales_order.company
+
+    # Add items from pick list locations
+    for loc in location_items:
+        # Find corresponding item in sales order
+        so_item = None
+        for item in sales_order.items:
+            if item.item_code == loc.item_code:
+                so_item = item
+                break
+
+        if not so_item:
+            continue
+
+        # Add item to delivery note
+        dn_item = dn.append('items', {})
+        dn_item.item_code = loc.item_code
+        dn_item.item_name = loc.item_name
+        dn_item.description = so_item.description
+        dn_item.qty = loc.picked_qty or loc.qty
+        dn_item.uom = loc.uom or loc.stock_uom
+        dn_item.stock_uom = loc.stock_uom
+        dn_item.conversion_factor = so_item.conversion_factor
+        dn_item.warehouse = loc.warehouse
+        dn_item.against_sales_order = sales_order_ref
+        dn_item.so_detail = so_item.name
+
+        # Transfer box assignment from pick list
+        if hasattr(loc, 'wms_box') and loc.wms_box:
+            dn_item.wms_box = loc.wms_box
+
+        # Initialize packed qty to 0
+        if hasattr(dn_item, 'wms_packed_qty'):
+            dn_item.wms_packed_qty = 0
+
+    # Save delivery note
+    dn.insert(ignore_permissions=True)
+
+    frappe.msgprint(_("Created Delivery Note {0} for {1}").format(dn.name, sales_order_ref))
+
+    return dn
+
+@frappe.whitelist()
+def get_unpacked_delivery_notes():
+    """
+    Get list of delivery notes ready for packing
+    Returns DNs that are draft or have unpacked items
+    """
+    # Query delivery notes that have pick_list and are not fully packed
+    dns = frappe.db.sql("""
+        SELECT DISTINCT
+            dn.name,
+            dn.customer,
+            dn.customer_name,
+            dn.posting_date,
+            dn.pick_list,
+            COUNT(DISTINCT dni.name) as total_items,
+            SUM(dni.qty) as total_qty,
+            SUM(IFNULL(dni.wms_packed_qty, 0)) as packed_qty
+        FROM `tabDelivery Note` dn
+        INNER JOIN `tabDelivery Note Item` dni ON dni.parent = dn.name
+        WHERE dn.docstatus = 0
+            AND dn.pick_list IS NOT NULL
+            AND dn.pick_list != ''
+            AND (dn.wms_packing_complete IS NULL OR dn.wms_packing_complete = 0)
+        GROUP BY dn.name
+        HAVING packed_qty < total_qty
+        ORDER BY dn.creation DESC
+    """, as_dict=True)
+
+    return dns
+
+@frappe.whitelist()
+def get_delivery_note_details(delivery_note):
+    """
+    Get detailed packing information for a delivery note
+    Similar to get_pick_list_details
+    """
+    dn = frappe.get_doc('Delivery Note', delivery_note)
+
+    items = []
+    for item in dn.items:
+        items.append({
+            'idx': item.idx,
+            'item_code': item.item_code,
+            'item_name': item.item_name,
+            'description': item.description,
+            'qty': item.qty,
+            'stock_uom': item.stock_uom,
+            'warehouse': item.warehouse,
+            'wms_box': item.get('wms_box') or '',
+            'wms_packed_qty': item.get('wms_packed_qty') or 0,
+            'wms_package_no': item.get('wms_package_no') or '',
+            'image': frappe.db.get_value('Item', item.item_code, 'image')
+        })
+
+    return {
+        'name': dn.name,
+        'customer': dn.customer,
+        'customer_name': dn.customer_name,
+        'pick_list': dn.get('pick_list'),
+        'items': items,
+        'total_items': len(items)
+    }
+
+@frappe.whitelist()
+def lock_delivery_note(delivery_note, session_id=None):
+    """
+    Lock a delivery note for packing by current user
+    Similar to lock_pick_list
+    """
+    doc = frappe.get_doc('Delivery Note', delivery_note)
+
+    # Check if already locked
+    if doc.get('wms_locked_by'):
+        locked_by = doc.wms_locked_by
+        locked_at = doc.wms_locked_at
+        locked_session = doc.get('wms_session_id')
+
+        # Check if lock is still valid (30 minutes)
+        if locked_at:
+            lock_age = frappe.utils.time_diff_in_seconds(frappe.utils.now(), locked_at)
+            if lock_age < 1800:  # 30 minutes
+                # Check if same session (tab refresh)
+                if session_id and locked_session == session_id:
+                    # Same session, allow
+                    return {'success': True, 'message': 'Lock refreshed'}
+
+                # Different user or different session
+                is_same_user = locked_by == frappe.session.user
+                return {
+                    'success': False,
+                    'locked_by': locked_by,
+                    'is_same_user': is_same_user,
+                    'message': f'This delivery note is being packed by {locked_by}' if not is_same_user
+                              else 'This delivery note is being packed in another tab'
+                }
+
+    # Lock is expired or doesn't exist, acquire lock
+    doc.wms_locked_by = frappe.session.user
+    doc.wms_locked_at = frappe.utils.now()
+    doc.wms_session_id = session_id
+    doc.save(ignore_permissions=True)
+    frappe.db.commit()
+
+    return {'success': True, 'message': 'Delivery note locked successfully'}
+
+@frappe.whitelist()
+def unlock_delivery_note(delivery_note):
+    """Unlock a delivery note"""
+    try:
+        doc = frappe.get_doc('Delivery Note', delivery_note)
+
+        # Only allow unlocking if locked by current user
+        if doc.get('wms_locked_by') == frappe.session.user:
+            doc.wms_locked_by = None
+            doc.wms_locked_at = None
+            doc.wms_session_id = None
+            doc.save(ignore_permissions=True)
+            frappe.db.commit()
+
+        return {'success': True}
+    except Exception as e:
+        frappe.log_error(f"Error unlocking delivery note: {str(e)}")
+        return {'success': False, 'message': str(e)}
+
+@frappe.whitelist()
+def update_packing_progress(delivery_note, item_idx, packed_qty, package_no, weight=None):
+    """
+    Update packing progress for a specific item
+    Similar to update_pick_progress
+    """
+    doc = frappe.get_doc('Delivery Note', delivery_note)
+
+    # Find item by idx
+    for item in doc.items:
+        if item.idx == int(item_idx):
+            item.wms_packed_qty = float(packed_qty)
+            if package_no:
+                item.wms_package_no = package_no
+
+            doc.save(ignore_permissions=True)
+            frappe.db.commit()
+
+            # Publish realtime update
+            frappe.publish_realtime('pack_progress_updated', {
+                'delivery_note': delivery_note,
+                'item_idx': item_idx,
+                'packed_qty': packed_qty
+            }, user=frappe.session.user)
+
+            return {'success': True, 'message': 'Packing progress updated successfully'}
+
+    return {'success': False, 'message': 'Item not found in delivery note'}
+
+@frappe.whitelist()
+def confirm_packing(delivery_note, packages):
+    """
+    Mark packing as complete
+    Validates all items are packed
+    """
+    doc = frappe.get_doc('Delivery Note', delivery_note)
+
+    # Validate all items are packed
+    for item in doc.items:
+        packed_qty = item.get('wms_packed_qty') or 0
+        if packed_qty < item.qty:
+            return {
+                'success': False,
+                'message': f'Item {item.item_code} is not fully packed ({packed_qty}/{item.qty})'
+            }
+
+    # Mark as packing complete
+    if hasattr(doc, 'wms_packing_complete'):
+        doc.wms_packing_complete = 1
+
+    doc.save(ignore_permissions=True)
+    frappe.db.commit()
+
+    return {
+        'success': True,
+        'message': 'Packing completed successfully'
+    }
+
+@frappe.whitelist()
+def create_shipment(delivery_note, packages, carrier=None, tracking_no=None, shipment_date=None, notes=None):
+    """
+    Create WMS Shipment record linked to delivery note
+    """
+    import json
+
+    # Parse packages if it's a string
+    if isinstance(packages, str):
+        packages = json.loads(packages)
+
+    dn = frappe.get_doc('Delivery Note', delivery_note)
+
+    # Create shipment document
+    try:
+        shipment = frappe.new_doc('WMS Shipment')
+        shipment.delivery_note = delivery_note
+        shipment.customer = dn.customer
+        shipment.shipment_date = shipment_date or frappe.utils.today()
+        shipment.carrier = carrier or ''
+        shipment.tracking_number = tracking_no or ''
+        shipment.status = 'Draft'
+        shipment.notes = notes or ''
+
+        # Calculate totals
+        total_weight = 0
+        total_packages = len(packages)
+
+        # Add packages
+        for pkg in packages:
+            package_row = shipment.append('packages', {})
+            package_row.package_no = pkg.get('package_no', '')
+            package_row.weight = pkg.get('weight', 0)
+            package_row.items_count = pkg.get('items_count', 0)
+            package_row.package_items = json.dumps(pkg.get('items', []))
+
+            total_weight += pkg.get('weight', 0)
+
+        shipment.total_weight = total_weight
+        shipment.total_packages = total_packages
+
+        shipment.insert(ignore_permissions=True)
+        frappe.db.commit()
+
+        # Update delivery note with shipment link
+        if hasattr(dn, 'wms_shipment'):
+            dn.wms_shipment = shipment.name
+            dn.save(ignore_permissions=True)
+            frappe.db.commit()
+
+        return {
+            'success': True,
+            'shipment': shipment.name,
+            'message': f'Shipment {shipment.name} created successfully'
+        }
+
+    except Exception as e:
+        frappe.log_error(f"Error creating shipment: {str(e)}")
+        return {
+            'success': False,
+            'message': str(e)
+        }
